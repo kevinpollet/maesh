@@ -1,6 +1,7 @@
 package dns
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -84,7 +85,7 @@ func (c *Client) CheckDNSProvider() (Provider, error) {
 func (c *Client) coreDNSMatch() (bool, error) {
 	c.logger.Info("Checking CoreDNS")
 
-	deployment, err := c.kubeClient.AppsV1().Deployments(metav1.NamespaceSystem).Get("coredns", metav1.GetOptions{})
+	deployment, err := c.kubeClient.AppsV1().Deployments(metav1.NamespaceSystem).Get(context.Background(), "coredns", metav1.GetOptions{})
 	if kerrors.IsNotFound(err) {
 		c.logger.Debugf("CoreDNS deployment does not exist in namespace %q", metav1.NamespaceSystem)
 		return false, nil
@@ -127,7 +128,7 @@ func isCoreDNSVersionSupported(versionLine string) bool {
 func (c *Client) kubeDNSMatch() (bool, error) {
 	c.logger.Info("Checking KubeDNS")
 
-	_, err := c.kubeClient.AppsV1().Deployments(metav1.NamespaceSystem).Get("kube-dns", metav1.GetOptions{})
+	_, err := c.kubeClient.AppsV1().Deployments(metav1.NamespaceSystem).Get(context.Background(), "kube-dns", metav1.GetOptions{})
 	if kerrors.IsNotFound(err) {
 		c.logger.Debugf("KubeDNS deployment does not exist in namespace %q", metav1.NamespaceSystem)
 		return false, nil
@@ -146,7 +147,7 @@ func (c *Client) kubeDNSMatch() (bool, error) {
 func (c *Client) ConfigureCoreDNS(coreDNSNamespace, clusterDomain, maeshNamespace string) error {
 	c.logger.Debug("Patching CoreDNS")
 
-	coreDNSDeployment, err := c.kubeClient.AppsV1().Deployments(coreDNSNamespace).Get("coredns", metav1.GetOptions{})
+	coreDNSDeployment, err := c.kubeClient.AppsV1().Deployments(coreDNSNamespace).Get(context.Background(), "coredns", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -158,7 +159,7 @@ func (c *Client) ConfigureCoreDNS(coreDNSNamespace, clusterDomain, maeshNamespac
 		return fmt.Errorf("unable to patch coredns config: %w", err)
 	}
 
-	if _, err = c.kubeClient.CoreV1().ConfigMaps(patchedConfigMap.Namespace).Update(patchedConfigMap); err != nil {
+	if _, err = c.kubeClient.CoreV1().ConfigMaps(patchedConfigMap.Namespace).Update(context.Background(), patchedConfigMap, metav1.UpdateOptions{}); err != nil {
 		return err
 	}
 
@@ -245,7 +246,7 @@ maesh:53 {
 func (c *Client) ConfigureKubeDNS(clusterDomain, maeshNamespace string) error {
 	c.logger.Debug("Patching KubeDNS")
 
-	deployment, err := c.kubeClient.AppsV1().Deployments(metav1.NamespaceSystem).Get("kube-dns", metav1.GetOptions{})
+	deployment, err := c.kubeClient.AppsV1().Deployments(metav1.NamespaceSystem).Get(context.Background(), "kube-dns", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -258,7 +259,7 @@ func (c *Client) ConfigureKubeDNS(clusterDomain, maeshNamespace string) error {
 	c.logger.Debug("Getting CoreDNS service IP")
 
 	if err = backoff.Retry(safe.OperationWithRecover(func() error {
-		svc, errSvc := c.kubeClient.CoreV1().Services(maeshNamespace).Get("coredns", metav1.GetOptions{})
+		svc, errSvc := c.kubeClient.CoreV1().Services(maeshNamespace).Get(context.Background(), "coredns", metav1.GetOptions{})
 		if errSvc != nil {
 			return fmt.Errorf("unable get the service %q in namespace %q: %w", "coredns", "maesh", errSvc)
 		}
@@ -303,7 +304,7 @@ func (c *Client) getKubeDNSConfigMap(kubeDeployment *appsv1.Deployment) (*corev1
 			continue
 		}
 
-		cfgMap, err := c.kubeClient.CoreV1().ConfigMaps(kubeDeployment.Namespace).Get(volume.ConfigMap.Name, metav1.GetOptions{})
+		cfgMap, err := c.kubeClient.CoreV1().ConfigMaps(kubeDeployment.Namespace).Get(context.Background(), volume.ConfigMap.Name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -340,7 +341,7 @@ func (c *Client) patchKubeDNSConfigMap(kubeConfigMap *corev1.ConfigMap, namespac
 
 	kubeConfigMap.Data["stubDomains"] = string(newData)
 
-	if _, err := c.kubeClient.CoreV1().ConfigMaps(namespace).Update(kubeConfigMap); err != nil {
+	if _, err := c.kubeClient.CoreV1().ConfigMaps(namespace).Update(context.Background(), kubeConfigMap, metav1.UpdateOptions{}); err != nil {
 		return err
 	}
 
@@ -359,14 +360,14 @@ func (c *Client) restartPods(deployment *appsv1.Deployment) error {
 	annotations["maesh-hash"] = uuid.New().String()
 	deployment.Spec.Template.Annotations = annotations
 
-	_, err := c.kubeClient.AppsV1().Deployments(deployment.Namespace).Update(deployment)
+	_, err := c.kubeClient.AppsV1().Deployments(deployment.Namespace).Update(context.Background(), deployment, metav1.UpdateOptions{})
 
 	return err
 }
 
 // RestoreCoreDNS restores the CoreDNS configuration to pre-install state.
 func (c *Client) RestoreCoreDNS() error {
-	coreDNSDeployment, err := c.kubeClient.AppsV1().Deployments(metav1.NamespaceSystem).Get("coredns", metav1.GetOptions{})
+	coreDNSDeployment, err := c.kubeClient.AppsV1().Deployments(metav1.NamespaceSystem).Get(context.Background(), "coredns", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -376,7 +377,7 @@ func (c *Client) RestoreCoreDNS() error {
 		return fmt.Errorf("unable to unpatch coredns config: %w", err)
 	}
 
-	if _, err = c.kubeClient.CoreV1().ConfigMaps(unpatchedConfigMap.Namespace).Update(unpatchedConfigMap); err != nil {
+	if _, err = c.kubeClient.CoreV1().ConfigMaps(unpatchedConfigMap.Namespace).Update(context.Background(), unpatchedConfigMap, metav1.UpdateOptions{}); err != nil {
 		return err
 	}
 
@@ -427,7 +428,7 @@ func (c *Client) unpatchCoreDNSConfig(deployment *appsv1.Deployment) (*corev1.Co
 
 // RestoreKubeDNS restores the KubeDNS configuration to pre-install state.
 func (c *Client) RestoreKubeDNS() error {
-	deployment, err := c.kubeClient.AppsV1().Deployments(metav1.NamespaceSystem).Get("kube-dns", metav1.GetOptions{})
+	deployment, err := c.kubeClient.AppsV1().Deployments(metav1.NamespaceSystem).Get(context.Background(), "kube-dns", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -465,7 +466,7 @@ func (c *Client) RestoreKubeDNS() error {
 	}
 
 	// Update the KubeDNS configmap to the backup.
-	if _, err := c.kubeClient.CoreV1().ConfigMaps(configMap.Namespace).Update(configMap); err != nil {
+	if _, err := c.kubeClient.CoreV1().ConfigMaps(configMap.Namespace).Update(context.Background(), configMap, metav1.UpdateOptions{}); err != nil {
 		return err
 	}
 
@@ -498,7 +499,7 @@ func (c *Client) getCorefileConfigMap(deployment *appsv1.Deployment) (*corev1.Co
 }
 
 func (c *Client) getConfigMap(namespace, name string) (*corev1.ConfigMap, error) {
-	configMap, err := c.kubeClient.CoreV1().ConfigMaps(namespace).Get(name, metav1.GetOptions{})
+	configMap, err := c.kubeClient.CoreV1().ConfigMaps(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -97,7 +98,7 @@ func (s *ShadowServiceManager) CreateOrUpdate(svc *corev1.Service) (*corev1.Serv
 	}
 
 	if shadowSvc == nil {
-		return s.kubeClient.CoreV1().Services(s.namespace).Create(newShadowSvc)
+		return s.kubeClient.CoreV1().Services(s.namespace).Create(context.Background(), newShadowSvc, metav1.CreateOptions{})
 	}
 
 	// Ensure that we are not leaking some port mappings if the traffic type of the new service version has been updated.
@@ -107,7 +108,7 @@ func (s *ShadowServiceManager) CreateOrUpdate(svc *corev1.Service) (*corev1.Serv
 	shadowSvc = shadowSvc.DeepCopy()
 	shadowSvc.Spec.Ports = newShadowSvc.Spec.Ports
 
-	return s.kubeClient.CoreV1().Services(s.namespace).Update(shadowSvc)
+	return s.kubeClient.CoreV1().Services(s.namespace).Update(context.Background(), shadowSvc, metav1.UpdateOptions{})
 }
 
 // Delete deletes the shadow service associated with the given service.
@@ -129,7 +130,7 @@ func (s *ShadowServiceManager) Delete(namespace, name string) error {
 		s.removeServicePortMapping(namespace, name, svcPort)
 	}
 
-	return s.kubeClient.CoreV1().Services(s.namespace).Delete(shadowSvcName, &metav1.DeleteOptions{})
+	return s.kubeClient.CoreV1().Services(s.namespace).Delete(context.Background(), shadowSvcName, metav1.DeleteOptions{})
 }
 
 func (s *ShadowServiceManager) cleanupPortMappings(namespace, name string, oldShadowSvc, newShadowSvc *corev1.Service) {

@@ -10,14 +10,16 @@ require (
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
 	github.com/pmezard/go-difflib v1.0.0
-	github.com/servicemeshinterface/smi-sdk-go v0.3.0
+	github.com/servicemeshinterface/smi-sdk-go v0.3.1-0.20200626051822-241f8c22df60
 	github.com/sirupsen/logrus v1.6.0
 	github.com/stretchr/testify v1.5.1
 	github.com/vdemeester/shakers v0.1.0
 	github.com/vulcand/oxy v1.1.0
-	k8s.io/api v0.17.4
-	k8s.io/apimachinery v0.17.4
-	k8s.io/client-go v0.17.4
+	gonum.org/v1/netlib v0.0.0-20190331212654-76723241ea4e // indirect
+	k8s.io/api v0.18.2
+	k8s.io/apimachinery v0.18.2
+	k8s.io/client-go v0.18.2
+	sigs.k8s.io/structured-merge-diff v0.0.0-20190525122527-15d366b2352e // indirect
 )
 
 replace (
@@ -28,6 +30,7 @@ replace (
 // Containous forks
 replace (
 	github.com/abbot/go-http-auth => github.com/containous/go-http-auth v0.4.1-0.20200324110947-a37a7636d23e
+	github.com/containous/traefik/v2 => /Users/kevinpollet/Documents/Dev/traefik
 	github.com/go-check/check => github.com/containous/check v0.0.0-20170915194414-ca0bf163426a
 	github.com/gorilla/mux => github.com/containous/mux v0.0.0-20200408164629-f779179d490a
 	github.com/mailgun/minheap => github.com/containous/minheap v0.0.0-20190809180810-6e71eb837595

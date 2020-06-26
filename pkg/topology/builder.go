@@ -2,7 +2,6 @@ package topology
 
 import (
 	"fmt"
-	"strconv"
 
 	mk8s "github.com/containous/maesh/pkg/k8s"
 	access "github.com/servicemeshinterface/smi-sdk-go/pkg/apis/access/v1alpha1"
@@ -563,16 +562,17 @@ func (b *Builder) buildTCPRoute(tcpRts map[Key]*spec.TCPRoute, ns string, s acce
 // If the port is "", all of the Service's ports are returned.
 // If the port is an integer, it is returned.
 func (b *Builder) getTrafficTargetDestinationPorts(svc *Service, tt *access.TrafficTarget) ([]corev1.ServicePort, error) {
-	if tt.Destination.Port == "" {
+	/*if tt.Destination.Port == "" {
 		return svc.Ports, nil
-	}
+	}*/
 
 	key := Key{tt.Name, tt.Namespace}
 
-	port, err := strconv.ParseInt(tt.Destination.Port, 10, 32)
-	if err != nil {
+	port := 0
+	//port, err := strconv.ParseInt(tt.Destination.Port, 10, 32)
+	/* if err != nil {
 		return nil, fmt.Errorf("destination port of TrafficTarget %q is not a valid port: %w", key, err)
-	}
+	}*/
 
 	for _, svcPort := range svc.Ports {
 		if svcPort.TargetPort.IntVal == int32(port) {

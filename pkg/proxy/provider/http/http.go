@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"reflect"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -14,6 +15,7 @@ import (
 	"github.com/containous/traefik/v2/pkg/log"
 	"github.com/containous/traefik/v2/pkg/provider"
 	"github.com/containous/traefik/v2/pkg/safe"
+	"github.com/containous/traefik/v2/pkg/tls"
 )
 
 var _ provider.Provider = (*Provider)(nil)
@@ -23,10 +25,13 @@ const providerName = "http"
 
 // Provider is a provider.Provider implementation that queries an endpoint for a configuration.
 type Provider struct {
-	Endpoint     string        `description:"Load configuration from this endpoint." json:"endpoint" toml:"endpoint" yaml:"endpoint" export:"true"`
-	PollInterval time.Duration `description:"Polling interval for endpoint." json:"pollInterval,omitempty" toml:"pollInterval,omitempty" yaml:"pollInterval,omitempty"`
-	PollTimeout  time.Duration `description:"Polling timeout for endpoint." json:"pollTimeout,omitempty" toml:"pollTimeout,omitempty" yaml:"pollTimeout,omitempty"`
-	httpClient   *http.Client
+	Endpoint       string        `description:"Load configuration from this endpoint." json:"endpoint" toml:"endpoint" yaml:"endpoint" export:"true"`
+	PollInterval   time.Duration `description:"Polling interval for endpoint." json:"pollInterval,omitempty" toml:"pollInterval,omitempty" yaml:"pollInterval,omitempty"`
+	PollTimeout    time.Duration `description:"Polling timeout for endpoint." json:"pollTimeout,omitempty" toml:"pollTimeout,omitempty" yaml:"pollTimeout,omitempty"`
+	httpClient     *http.Client
+	previous       dynamic.Message
+	previousData   string
+	previousConfig *dynamic.Configuration
 }
 
 // New creates a new instance of the HTTP provider.
@@ -66,48 +71,76 @@ func (p *Provider) Provide(configurationChan chan<- dynamic.Message, pool *safe.
 		logger := log.FromContext(ctxLog)
 
 		operation := func() error {
-			errChan := make(chan error)
 			ticker := time.NewTicker(p.PollInterval)
+			defer ticker.Stop()
 
-			pool.GoCtx(func(ctx context.Context) {
-				ctx = log.With(ctx, log.Str(log.ProviderName, providerName))
+			for {
+				select {
+				case <-ticker.C:
+					/*data, err := p.getDataFromEndpoint(ctxLog)
+					if err != nil {
+						logger.Errorf("Failed to get config from endpoint: %v", err)
+						return err
+					}*/
 
-				defer close(errChan)
-				for {
-					select {
-					case <-ticker.C:
-						data, err := p.getDataFromEndpoint(ctxLog)
-						if err != nil {
-							logger.Errorf("Failed to get config from endpoint: %v", err)
-							errChan <- err
-							return
-						}
-
-						configuration := &dynamic.Configuration{}
-
-						if err := json.Unmarshal(data, configuration); err != nil {
-							log.FromContext(ctx).Errorf("Error parsing configuration: %v", err)
-							return
-						}
-
-						if configuration != nil {
-							configurationChan <- dynamic.Message{
-								ProviderName:  providerName,
-								Configuration: configuration,
-							}
-						}
-
-					case <-ctx.Done():
-						ticker.Stop()
-						return
+					configuration := &dynamic.Configuration{
+						HTTP: &dynamic.HTTPConfiguration{
+							Routers:     make(map[string]*dynamic.Router),
+							Middlewares: make(map[string]*dynamic.Middleware),
+							Services:    make(map[string]*dynamic.Service),
+						},
+						TCP: &dynamic.TCPConfiguration{
+							Routers:  make(map[string]*dynamic.TCPRouter),
+							Services: make(map[string]*dynamic.TCPService),
+						},
+						TLS: &dynamic.TLSConfiguration{
+							Stores:  make(map[string]tls.Store),
+							Options: make(map[string]tls.Options),
+						},
+						UDP: &dynamic.UDPConfiguration{
+							Routers:  make(map[string]*dynamic.UDPRouter),
+							Services: make(map[string]*dynamic.UDPService),
+						},
 					}
+
+					data := "{\"http\":{\"routers\":{\"default-whoami-http-80\":{\"entryPoints\":[\"http-5000\"],\"service\":\"default-whoami-http-80\",\"rule\":\"Host(`whoami-http.default.maesh`) || Host(`10.99.239.249`)\",\"priority\":1001},\"readiness\":{\"entryPoints\":[\"readiness\"],\"service\":\"readiness\",\"rule\":\"Path(`/ping`)\"}},\"services\":{\"block-all-service\":{\"loadBalancer\":{\"passHostHeader\":null}},\"default-whoami-http-80\":{\"loadBalancer\":{\"servers\":[{\"url\":\"http://10.244.1.7:80\"},{\"url\":\"http://10.244.1.8:80\"},{\"url\":\"http://10.244.2.7:80\"}],\"passHostHeader\":true}},\"readiness\":{\"loadBalancer\":{\"servers\":[{\"url\":\"http://127.0.0.1:8080\"}],\"passHostHeader\":true}}},\"middlewares\":{\"block-all-middleware\":{\"ipWhiteList\":{\"sourceRange\":[\"255.255.255.255\"]}}}},\"tcp\":{\"routers\":{\"default-whoami-tcp-8080\":{\"entryPoints\":[\"tcp-10000\"],\"service\":\"default-whoami-tcp-8080\",\"rule\":\"HostSNI(`*`)\"}},\"services\":{\"default-whoami-tcp-8080\":{\"loadBalancer\":{\"servers\":[{\"address\":\"10.244.1.10:8080\"},{\"address\":\"10.244.1.9:8080\"},{\"address\":\"10.244.2.8:8080\"}]}}}},\"udp\":{}}"
+
+					if err := json.Unmarshal([]byte(data), configuration); err != nil {
+						logger.Errorf("Error parsing configuration: %v", err)
+						return err
+					}
+
+					message := dynamic.Message{
+						ProviderName:  providerName,
+						Configuration: configuration,
+					}
+
+					// configuration.HTTP = nil
+					//if p.previousConfig != nil {
+					//	fmt.Println(reflect.DeepEqual(configuration.TCP, p.previousConfig.TCP))
+					//}
+
+					// configuration.UDP = nil
+					// configuration.TLS = nil
+
+
+					// configuration.TCP = nil
+
+					fmt.Println("---------")
+					fmt.Println("Config DeepEqual", reflect.DeepEqual(p.previousConfig, configuration))
+					fmt.Println("Message DeepEqual", reflect.DeepEqual(p.previous, message))
+
+					p.previous = message
+					p.previousConfig = configuration
+					p.previousData = string(data)
+
+					fmt.Println("Message Sent")
+					configurationChan <- message
+
+				case <-routineCtx.Done():
+					return nil
 				}
-			})
-			if err, ok := <-errChan; ok {
-				return err
 			}
-			// channel closed
-			return nil
 		}
 
 		notify := func(err error, time time.Duration) {
@@ -123,7 +156,7 @@ func (p *Provider) Provide(configurationChan chan<- dynamic.Message, pool *safe.
 }
 
 // getDataFromEndpoint returns data from the configured provider endpoint.
-func (p Provider) getDataFromEndpoint(ctx context.Context) ([]byte, error) {
+func (p *Provider) getDataFromEndpoint(ctx context.Context) ([]byte, error) {
 	resp, err := p.httpClient.Get(p.Endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get data from endpoint %q: %w", p.Endpoint, err)

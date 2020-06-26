@@ -1,6 +1,7 @@
 package cleanup
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/containous/maesh/pkg/dns"
@@ -31,7 +32,7 @@ func NewCleanup(logger logrus.FieldLogger, kubeClient kubernetes.Interface, name
 
 // CleanShadowServices deletes all shadow services from the cluster.
 func (c *Cleanup) CleanShadowServices() error {
-	serviceList, err := c.kubeClient.CoreV1().Services(c.namespace).List(metav1.ListOptions{
+	serviceList, err := c.kubeClient.CoreV1().Services(c.namespace).List(context.Background(), metav1.ListOptions{
 		LabelSelector: "app=maesh,type=shadow",
 	})
 	if err != nil {
@@ -39,7 +40,7 @@ func (c *Cleanup) CleanShadowServices() error {
 	}
 
 	for _, s := range serviceList.Items {
-		if err := c.kubeClient.CoreV1().Services(s.Namespace).Delete(s.Name, &metav1.DeleteOptions{}); err != nil {
+		if err := c.kubeClient.CoreV1().Services(s.Namespace).Delete(context.Background(), s.Name, metav1.DeleteOptions{}); err != nil {
 			return err
 		}
 	}
