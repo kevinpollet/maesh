@@ -113,47 +113,47 @@ func (a *API) SetTopology(topo *topology.Topology) {
 }
 
 // getCurrentConfiguration returns the current configuration.
-func (a *API) getCurrentConfiguration(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+func (a *API) getCurrentConfiguration(rw http.ResponseWriter, _ *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
 
-	if err := json.NewEncoder(w).Encode(a.configuration.Get()); err != nil {
+	if err := json.NewEncoder(rw).Encode(a.configuration.Get()); err != nil {
 		a.log.Errorf("Unable to serialize dynamic configuration: %v", err)
-		http.Error(w, "", http.StatusInternalServerError)
+		http.Error(rw, "", http.StatusInternalServerError)
 	}
 }
 
 // getCurrentTopology returns the current topology.
-func (a *API) getCurrentTopology(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+func (a *API) getCurrentTopology(rw http.ResponseWriter, _ *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
 
-	if err := json.NewEncoder(w).Encode(a.topology.Get()); err != nil {
+	if err := json.NewEncoder(rw).Encode(a.topology.Get()); err != nil {
 		a.log.Errorf("Unable to serialize topology: %v", err)
-		http.Error(w, "", http.StatusInternalServerError)
+		http.Error(rw, "", http.StatusInternalServerError)
 	}
 }
 
 // getReadiness returns the current readiness value, and sets the status code to 500 if not ready.
-func (a *API) getReadiness(w http.ResponseWriter, _ *http.Request) {
+func (a *API) getReadiness(rw http.ResponseWriter, _ *http.Request) {
 	isReady, _ := a.readiness.Get().(bool)
 	if !isReady {
-		http.Error(w, "", http.StatusInternalServerError)
+		http.Error(rw, "", http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	rw.Header().Set("Content-Type", "application/json")
 
-	if err := json.NewEncoder(w).Encode(isReady); err != nil {
+	if err := json.NewEncoder(rw).Encode(isReady); err != nil {
 		a.log.Errorf("Unable to serialize readiness: %v", err)
-		http.Error(w, "", http.StatusInternalServerError)
+		http.Error(rw, "", http.StatusInternalServerError)
 	}
 }
 
 // getMeshNodes returns a list of mesh nodes visible from the controller, and some basic readiness info.
-func (a *API) getMeshNodes(w http.ResponseWriter, _ *http.Request) {
+func (a *API) getMeshNodes(rw http.ResponseWriter, _ *http.Request) {
 	podList, err := a.podLister.List(labels.Everything())
 	if err != nil {
 		a.log.Errorf("Unable to retrieve pod list: %v", err)
-		http.Error(w, "", http.StatusInternalServerError)
+		http.Error(rw, "", http.StatusInternalServerError)
 
 		return
 	}
@@ -178,27 +178,27 @@ func (a *API) getMeshNodes(w http.ResponseWriter, _ *http.Request) {
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	rw.Header().Set("Content-Type", "application/json")
 
-	if err := json.NewEncoder(w).Encode(podInfoList); err != nil {
+	if err := json.NewEncoder(rw).Encode(podInfoList); err != nil {
 		a.log.Errorf("Unable to serialize mesh nodes: %v", err)
-		http.Error(w, "", http.StatusInternalServerError)
+		http.Error(rw, "", http.StatusInternalServerError)
 	}
 }
 
 // getMeshNodeConfiguration returns the configuration for a named pod.
-func (a *API) getMeshNodeConfiguration(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
+func (a *API) getMeshNodeConfiguration(rw http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
 
 	pod, err := a.podLister.Pods(a.namespace).Get(vars["node"])
 	if err != nil {
 		if kubeerror.IsNotFound(err) {
-			http.Error(w, "", http.StatusNotFound)
+			http.Error(rw, "", http.StatusNotFound)
 
 			return
 		}
 
-		http.Error(w, "", http.StatusInternalServerError)
+		http.Error(rw, "", http.StatusInternalServerError)
 
 		return
 	}
@@ -206,7 +206,7 @@ func (a *API) getMeshNodeConfiguration(w http.ResponseWriter, r *http.Request) {
 	resp, err := http.Get(fmt.Sprintf("http://%s:8080/api/rawdata", pod.Status.PodIP))
 	if err != nil {
 		a.log.Errorf("Unable to get configuration from pod %q: %v", pod.Name, err)
-		http.Error(w, "", http.StatusBadGateway)
+		http.Error(rw, "", http.StatusBadGateway)
 
 		return
 	}
@@ -220,15 +220,15 @@ func (a *API) getMeshNodeConfiguration(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		a.log.Errorf("Unable to get configuration response body from pod %q: %v", pod.Name, err)
-		http.Error(w, "", http.StatusBadGateway)
+		http.Error(rw, "", http.StatusBadGateway)
 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	rw.Header().Set("Content-Type", "application/json")
 
-	if _, err := w.Write(body); err != nil {
+	if _, err := rw.Write(body); err != nil {
 		a.log.Errorf("Unable to write mesh nodes: %v", err)
-		http.Error(w, "", http.StatusInternalServerError)
+		http.Error(rw, "", http.StatusInternalServerError)
 	}
 }
