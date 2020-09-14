@@ -10,6 +10,7 @@ require (
 	github.com/hashicorp/go-version v1.2.1
 	github.com/servicemeshinterface/smi-sdk-go v0.4.1
 	github.com/sirupsen/logrus v1.6.0
+	github.com/spiffe/go-spiffe v1.1.0
 	github.com/stretchr/testify v1.6.1
 	github.com/traefik/paerser v0.1.0
 	github.com/traefik/traefik/v2 v2.3.0

@@ -4,7 +4,7 @@ import (
 	"os"
 )
 
-// TraefikMeshConfiguration wraps the static configuration and extra parameters.
+// TraefikMeshConfiguration holds the configuration for the main command.
 type TraefikMeshConfiguration struct {
 	ConfigFile       string   `description:"Configuration file to use. If specified all other flags are ignored." export:"true"`
 	KubeConfig       string   `description:"Path to a kubeconfig. Only required if out-of-cluster." export:"true"`
@@ -85,5 +85,34 @@ func NewCleanupConfiguration() *CleanupConfiguration {
 		Namespace:  "maesh",
 		LogLevel:   "error",
 		LogFormat:  "common",
+	}
+}
+
+// IdentityConfiguration holds the configuration for the identity command.
+type IdentityConfiguration struct {
+	ConfigFile              string `description:"Configuration file to use. If specified all other flags are ignored." export:"true"`
+	KubeConfig              string `description:"Path to a kubeconfig. Only required if out-of-cluster." export:"true"`
+	MasterURL               string `description:"The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster." export:"true"`
+	LogLevel                string `description:"The log level." export:"true"`
+	LogFormat               string `description:"The log format." export:"true"`
+	Port                    int32  `description:"The identity provider port." export:"true"`
+	Host                    string `description:"The identity provider host to bind to." export:"true"`
+	TrustDomain             string `description:"The trust domain of the identity provider." export:"true"`
+	Namespace               string `description:"The namespace that Traefik Mesh is installed in." export:"true"`
+	ClusterDomain           string `description:"Your internal K8s cluster domain." export:"true"`
+	ServiceName             string `description:"The identity provider service name." export:"true"`
+	ProxyServiceAccountName string `description:"The proxy service account name." export:"true"`
+}
+
+// NewIdentityConfiguration creates an IdentityConfiguration.
+func NewIdentityConfiguration() *IdentityConfiguration {
+	return &IdentityConfiguration{
+		Port:          8443,
+		KubeConfig:    os.Getenv("KUBECONFIG"),
+		Namespace:     "maesh",
+		ClusterDomain: "cluster.local",
+		LogLevel:      "error",
+		LogFormat:     "common",
+		TrustDomain:   "traefik-mesh",
 	}
 }

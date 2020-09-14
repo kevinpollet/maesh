@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/traefik/mesh/v2/cmd"
 	"github.com/traefik/mesh/v2/cmd/cleanup"
+	"github.com/traefik/mesh/v2/cmd/identity"
 	"github.com/traefik/mesh/v2/cmd/prepare"
 	"github.com/traefik/mesh/v2/cmd/version"
 	"github.com/traefik/mesh/v2/pkg/api"
@@ -38,6 +39,12 @@ func main() {
 		Run: func(_ []string) error {
 			return traefikMeshCommand(traefikMeshConfig)
 		},
+	}
+
+	identityConfig := cmd.NewIdentityConfiguration()
+	if err := cmdTraefikMesh.AddCommand(identity.NewCmd(identityConfig, traefikMeshLoaders)); err != nil {
+		stdlog.Println(err)
+		os.Exit(1)
 	}
 
 	prepareConfig := cmd.NewPrepareConfiguration()
