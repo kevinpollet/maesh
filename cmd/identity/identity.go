@@ -3,7 +3,9 @@ package identity
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/traefik/mesh/v2/cmd"
@@ -12,9 +14,9 @@ import (
 	"github.com/traefik/paerser/cli"
 )
 
-// NewCmd builds a new Cleanup command.
+// NewCmd builds a new identity command.
 func NewCmd(config *cmd.IdentityConfiguration, loaders []cli.ResourceLoader) *cli.Command {
-	return &cli.Command{
+	identityCmd := &cli.Command{
 		Name:          "identity",
 		Description:   `Starts the identity provider.`,
 		Configuration: config,
@@ -23,6 +25,14 @@ func NewCmd(config *cmd.IdentityConfiguration, loaders []cli.ResourceLoader) *cl
 		},
 		Resources: loaders,
 	}
+
+	identityAgentConfig := cmd.NewIdentityAgentConfiguration()
+	if err := identityCmd.AddCommand(NewAgentCmd(identityAgentConfig, loaders)); err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+
+	return identityCmd
 }
 
 func identityCommand(config *cmd.IdentityConfiguration) error {

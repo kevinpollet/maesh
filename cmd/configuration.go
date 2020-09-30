@@ -116,3 +116,25 @@ func NewIdentityConfiguration() *IdentityConfiguration {
 		TrustDomain:   "traefik-mesh",
 	}
 }
+
+// IdentityAgentConfiguration holds the configuration for the identity client subcommand.
+type IdentityAgentConfiguration struct {
+	ConfigFile         string `description:"Configuration file to use. If specified all other flags are ignored." export:"true"`
+	LogLevel           string `description:"The log level." export:"true"`
+	LogFormat          string `description:"The log format." export:"true"`
+	TrustDomain        string `description:"The trust domain of the identity provider." export:"true"`
+	Namespace          string `description:"The namespace that Traefik Mesh is installed in." export:"true"`
+	ServiceAccountName string `description:"The service account name." export:"true"`
+	IssuerURL          string `description:"The address of the Identity Provider API server." export:"true"`
+	Token              string `description:"Must be removed." export:"true"` // TODO: remove
+}
+
+// NewIdentityConfiguration creates an IdentityConfiguration.
+func NewIdentityAgentConfiguration() *IdentityAgentConfiguration {
+	return &IdentityAgentConfiguration{
+		LogLevel:    "error",
+		LogFormat:   "common",
+		Namespace:   "maesh",
+		TrustDomain: "traefik-mesh",
+	}
+}
